@@ -22,6 +22,7 @@
 #include <qfiledialog.h>
 #include <qdragobject.h>
 #include <qregexp.h>
+#include <qprocess.h>
 
 #include <stdlib.h>
 
@@ -349,6 +350,8 @@ ConfigList::ConfigList(ConfigView* p, const char *name)
 		colMap[i] = colRevMap[i] = -1;
 	addColumn(promptColIdx, _("Option"));
 
+	conflictChecker = new ConflictChecker();
+
 	reinit();
 }
 
@@ -483,6 +486,49 @@ void ConfigList::setValue(ConfigItem* item, tristate val)
 	}
 }
 
+ConflictChecker::ConflictChecker()
+{
+	rangeFixLocation = getenv("RANGEFIX");
+	qDebug("Range Fix location: %s", rangeFixLocation);
+	proc = new QProcess(this);
+	connect(proc, SIGNAL(processExited()), this, SLOT(readFromStdout()));
+}
+
+void ConflictChecker::doCheck()
+{
+	QStringList params = QStringList()
+		<< "java"
+		<< "-cp"
+		<< QString(
+			"%1/target/scala-2.9.2/classes:%2/lib/kiama_2.9.2-1.4.0.jar:"
+			"%3/lib/scala-library.jar:%4/lib/lvat-0.5-SNAPSHOT.jar"
+		).arg(
+			rangeFixLocation, rangeFixLocation,
+			rangeFixLocation, rangeFixLocation)
+		<< "ca.uwaterloo.gsd.rangeFix.KconfigMain"
+		<< QString("%1/testfiles/kconfig/test.exconfig").arg(rangeFixLocation)
+		<< QString("%1/testfiles/kconfig/test.config").arg(rangeFixLocation)
+		<< "A"
+		<< "yes";
+	proc->setArguments(params);
+
+	if (!proc->start())
+		qDebug("Could not run Range Fix");
+}
+
+void ConflictChecker::readFromStdout()
+{
+	qDebug("Range Fix fininished");
+	while (proc->canReadLineStdout()) {
+		QString line = proc->readLineStdout();
+		if (line.find('[') >= 0) {
+			QString fix = line.stripWhiteSpace();
+			qDebug(QString("Fix: %1").arg(fix));
+			emit foundConflict(fix);
+		}
+	}
+}
+
 void ConfigList::changeValue(ConfigItem* item)
 {
 	struct symbol* sym;
@@ -498,6 +544,7 @@ void ConfigList::changeValue(ConfigItem* item)
 			item->setOpen(!item->isOpen());
 		return;
 	}
+	conflictChecker->doCheck();
 
 	type = sym_get_type(sym);
 	switch (type) {
@@ -1263,6 +1310,13 @@ void ConfigSearchWindow::search(void)
 	}
 }
 
+void ConfigMainWindow::addConflict(QString something) {
+	QListViewItem* item = new QListViewItem(conflictsList);
+	item->setText(0, something);
+	conflictsList->insertItem(item);
+	conflictsList->show();
+}
+
 /*
  * Construct the complete config widget
  */
@@ -1294,13 +1348,19 @@ ConfigMainWindow::ConfigMainWindow(void)
 
 	menuView = new ConfigView(split1, "menu");
 	menuList = menuView->list;
+	connect(menuList->conflictChecker, SIGNAL(foundConflict(QString)), SLOT(addConflict(QString)));
 
 	split2 = new QSplitter(split1);
 	split2->setOrientation(Qt::Vertical);
 
+	conflictsList = new QListView(split1, "config");
+	conflictsList->addColumn("Conflicts");
+	conflictsList->hide();
+
 	// create config tree
 	configView = new ConfigView(split2, "config");
 	configList = configView->list;
+	connect(configList->conflictChecker, SIGNAL(foundConflict(QString)), SLOT(addConflict(QString)));
 
 	helpText = new ConfigInfoView(split2, "help");
 	helpText->setTextFormat(Qt::RichText);
@@ -1333,6 +1393,9 @@ ConfigMainWindow::ConfigMainWindow(void)
 	  connect(splitViewAction, SIGNAL(activated()), SLOT(showSplitView()));
 	QAction *fullViewAction = new QAction("Full View", QPixmap(xpm_tree_view), _("Full View"), 0, this);
 	  connect(fullViewAction, SIGNAL(activated()), SLOT(showFullView()));
+	conflictsAction = new QAction("Conflicts View", QPixmap(xpm_conflicts), _("Conflicts View"), 0, this);
+	  conflictsAction->setToggleAction(TRUE);
+	  connect(conflictsAction, SIGNAL(toggled(bool)), SLOT(showConflicts()));
 
 	QAction *showNameAction = new QAction(NULL, _("Show Name"), 0, this);
 	  showNameAction->setToggleAction(TRUE);
@@ -1374,6 +1437,8 @@ ConfigMainWindow::ConfigMainWindow(void)
 	singleViewAction->addTo(toolBar);
 	splitViewAction->addTo(toolBar);
 	fullViewAction->addTo(toolBar);
+	toolBar->addSeparator();
+	conflictsAction->addTo(toolBar);
 
 	// create config menu
 	QPopupMenu* config = new QPopupMenu(this);
@@ -1442,6 +1507,10 @@ ConfigMainWindow::ConfigMainWindow(void)
 	sizes = configSettings->readSizes("/split2", &ok);
 	if (ok)
 		split2->setSizes(sizes);
+
+	bool showConflicts = configSettings->readBoolEntry("/showConflicts", TRUE);
+	if (showConflicts)
+		conflictsAction->toggle();
 }
 
 void ConfigMainWindow::loadConfig(void)
@@ -1644,6 +1713,17 @@ void ConfigMainWindow::showIntro(void)
 		"which you can then match by examining other options.\n\n");
 
 	QMessageBox::information(this, "qconf", str);
+}
+
+void ConfigMainWindow::showConflicts(void)
+{
+	bool visible = conflictsList->isVisible();
+	if (visible)
+		conflictsList->hide();
+	else
+		conflictsList->show();
+	visible = !visible;
+	configSettings->writeEntry("/showConflicts", visible);
 }
 
 void ConfigMainWindow::showAbout(void)

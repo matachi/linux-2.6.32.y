@@ -31,6 +31,19 @@ class ConfigItem;
 class ConfigLineEdit;
 class ConfigMainWindow;
 
+class ConflictChecker : public QObject {
+	Q_OBJECT
+public:
+	ConflictChecker();
+	void doCheck(void);
+private:
+	QProcess *proc;
+	char* rangeFixLocation;
+public slots:
+	void readFromStdout(void);
+signals:
+	void foundConflict(QString);
+};
 
 class ConfigSettings : public QSettings {
 public:
@@ -130,6 +143,8 @@ public:
 	QColorGroup disabledColorGroup;
 	QColorGroup inactivedColorGroup;
 	QPopupMenu* headerPopup;
+
+	ConflictChecker *conflictChecker;
 
 private:
 	int colMap[colNr];
@@ -315,8 +330,10 @@ public slots:
 	void showSplitView(void);
 	void showFullView(void);
 	void showIntro(void);
+	void showConflicts(void);
 	void showAbout(void);
 	void saveSettings(void);
+	void addConflict(QString);
 
 protected:
 	void closeEvent(QCloseEvent *e);
@@ -326,9 +343,11 @@ protected:
 	ConfigList *menuList;
 	ConfigView *configView;
 	ConfigList *configList;
+	QListView *conflictsList;
 	ConfigInfoView *helpText;
 	QToolBar *toolBar;
 	QAction *backAction;
+	QAction *conflictsAction;
 	QSplitter* split1;
 	QSplitter* split2;
 };
