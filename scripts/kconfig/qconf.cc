@@ -1360,7 +1360,7 @@ ConfigMainWindow::ConfigMainWindow(void)
 	split2->setOrientation(Qt::Vertical);
 
 	conflictsList = new QListView(split1, "config");
-	conflictsList->addColumn("Conflicts");
+	conflictsList->addColumn("Fixes");
 	conflictsList->hide();
 
 	// create config tree
