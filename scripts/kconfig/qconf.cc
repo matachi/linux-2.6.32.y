@@ -512,13 +512,19 @@ void ConflictChecker::doCheck()
 		<< "yes";
 	proc->setArguments(params);
 
-	if (!proc->start())
+	if (proc->start())
+		qDebug("Range Fix started");
+	else
 		qDebug("Could not run Range Fix");
 }
 
 void ConflictChecker::readFromStdout()
 {
 	qDebug("Range Fix fininished");
+	if (proc->canReadLineStderr()) {
+		qDebug("Something went wrong.");
+		qDebug(proc->readStderr());
+	}
 	while (proc->canReadLineStdout()) {
 		QString line = proc->readLineStdout();
 		if (line.find('[') >= 0) {
