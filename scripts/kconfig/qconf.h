@@ -35,7 +35,7 @@ class ConflictChecker : public QObject {
 	Q_OBJECT
 public:
 	ConflictChecker();
-	void doCheck(void);
+	void doCheck(struct symbol*, tristate val);
 private:
 	QProcess *proc;
 	char* rangeFixLocation;

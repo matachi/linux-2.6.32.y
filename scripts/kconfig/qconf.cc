@@ -23,6 +23,7 @@
 #include <qdragobject.h>
 #include <qregexp.h>
 #include <qprocess.h>
+#include <qdir.h>
 
 #include <stdlib.h>
 
@@ -478,6 +479,7 @@ void ConfigList::setValue(ConfigItem* item, tristate val)
 		oldval = sym_get_tristate_value(sym);
 
 		if (!sym_set_tristate_value(sym, val))
+			conflictChecker->doCheck(sym, val);
 			return;
 		if (oldval == no && item->menu->list)
 			item->setOpen(TRUE);
@@ -494,8 +496,21 @@ ConflictChecker::ConflictChecker()
 	connect(proc, SIGNAL(processExited()), this, SLOT(readFromStdout()));
 }
 
-void ConflictChecker::doCheck()
+void ConflictChecker::doCheck(struct symbol* sym, tristate val)
 {
+	QString strval;
+	switch (val) {
+	case no:
+		strval = QString("no");
+		break;
+	case mod:
+		strval = QString("mode");
+		break;
+	case yes:
+		strval = QString("yes");
+		break;
+	}
+	qDebug(QString("Want to set '%1' to '%2'").arg(sym->name).arg(strval));
 	QStringList params = QStringList()
 		<< "java"
 		<< "-cp"
@@ -506,10 +521,11 @@ void ConflictChecker::doCheck()
 			rangeFixLocation, rangeFixLocation,
 			rangeFixLocation, rangeFixLocation)
 		<< "ca.uwaterloo.gsd.rangeFix.KconfigMain"
-		<< QString("%1/testfiles/kconfig/test.exconfig").arg(rangeFixLocation)
-		<< QString("%1/testfiles/kconfig/test.config").arg(rangeFixLocation)
-		<< "A"
-		<< "yes";
+		<< QString("%1/scripts/kconfig/2.6.32.70.exconfig").arg(
+			QDir::currentDirPath())
+		<< QString("%1/.config").arg(QDir::currentDirPath())
+		<< sym->name
+		<< strval;
 	proc->setArguments(params);
 
 	if (proc->start())
@@ -550,7 +566,6 @@ void ConfigList::changeValue(ConfigItem* item)
 			item->setOpen(!item->isOpen());
 		return;
 	}
-	conflictChecker->doCheck();
 
 	type = sym_get_type(sym);
 	switch (type) {
