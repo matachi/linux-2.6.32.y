@@ -13,6 +13,11 @@ gconf.glade.h
 *.mo
 
 #
+# Dependencies
+#
+RangeFix.jar
+
+#
 # configuration programs
 #
 conf

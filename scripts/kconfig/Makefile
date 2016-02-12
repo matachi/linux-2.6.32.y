@@ -11,7 +11,10 @@ else
 Kconfig := arch/$(SRCARCH)/Kconfig
 endif
 
-xconfig: $(obj)/qconf
+$(obj)/RangeFix.jar:
+	wget -P $(obj) https://github.com/matachi/rangeFix/releases/download/0.1/RangeFix.jar
+
+xconfig: $(obj)/qconf $(obj)/RangeFix.jar
 	$< $(Kconfig)
 
 gconfig: $(obj)/gconf

@@ -493,8 +493,6 @@ void ConfigList::setValue(ConfigItem* item, tristate val)
 
 ConflictChecker::ConflictChecker()
 {
-	rangeFixLocation = getenv("RANGEFIX");
-	qDebug("Range Fix location: %s", rangeFixLocation);
 	proc = new QProcess(this);
 	connect(proc, SIGNAL(processExited()), this, SLOT(readFromStdout()));
 }
@@ -517,12 +515,8 @@ void ConflictChecker::doCheck(struct symbol* sym, tristate val)
 	QStringList params = QStringList()
 		<< "java"
 		<< "-cp"
-		<< QString(
-			"%1/target/scala-2.9.2/classes:%2/lib/kiama_2.9.2-1.4.0.jar:"
-			"%3/lib/scala-library.jar:%4/lib/lvat-0.5-SNAPSHOT.jar"
-		).arg(
-			rangeFixLocation, rangeFixLocation,
-			rangeFixLocation, rangeFixLocation)
+		<< QString("%1/scripts/kconfig/RangeFix.jar").arg(
+			QDir::currentDirPath())
 		<< "ca.uwaterloo.gsd.rangeFix.KconfigMain"
 		<< QString("%1/scripts/kconfig/2.6.32.70.exconfig").arg(
 			QDir::currentDirPath())

@@ -1,14 +1,6 @@
 # How to get fix proposals in xconfig
 
-    $ git clone --depth 1 --branch scala-2.9 git@github.com:matachi/rangeFix.git
-    $ cd rangeFix
-    $ less README.md # Follow the instructions
-    $ cd ..
-
-    $ git clone git@github.com:matachi/linux-2.6.32.y.git
-    $ cd linux-2.6.32.y
-    $ export RANGEFIX=`readlink -f ../rangeFix`
-    $ make xconfig
+You first must have Java JRE installed. Then run `make xconfig`.
 
 In xconfig, select a tristate option whose value you want to change and press
 either `n`, `m` or `y` on your keyboard. If the choice causes a conflict with

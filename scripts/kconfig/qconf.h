@@ -38,7 +38,6 @@ public:
 	void doCheck(struct symbol*, tristate val);
 private:
 	QProcess *proc;
-	char* rangeFixLocation;
 public slots:
 	void readFromStdout(void);
 signals:
