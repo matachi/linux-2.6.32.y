@@ -478,12 +478,13 @@ void ConfigList::setValue(ConfigItem* item, tristate val)
 	case S_TRISTATE:
 		oldval = sym_get_tristate_value(sym);
 
-		if (!sym_set_tristate_value(sym, val))
+		if (!sym_set_tristate_value(sym, val)) {
 			if (type == S_TRISTATE)
 				conflictChecker->doCheck(sym, val);
 			else
 				qDebug("RangeFix only works on tristate options.");
 			return;
+		}
 		if (oldval == no && item->menu->list)
 			item->setOpen(TRUE);
 		parent()->updateList(item);
