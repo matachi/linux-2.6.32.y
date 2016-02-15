@@ -558,6 +558,7 @@ void ConflictChecker::readFromStdout()
 		qDebug("Something went wrong.");
 		qDebug(proc->readStderr());
 	}
+	QStringList allLines = QStringList();
 	while (proc->canReadLineStdout()) {
 		QString line = proc->readLineStdout();
 		if (line.find('[') >= 0) {
@@ -567,9 +568,10 @@ void ConflictChecker::readFromStdout()
 			QStringList lines = QStringList::split(", ", fix);
 			for (int i = 1; i < lines.size(); ++i)
 				lines[i] = QString(" %1").arg(lines[i]);
-			emit foundConflict(lines);
+			allLines += lines;
 		}
 	}
+	emit foundConflict(allLines);
 }
 
 void ConfigList::changeValue(ConfigItem* item)
