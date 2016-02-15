@@ -295,37 +295,41 @@ void sym_calc_value(struct symbol *sym)
 	switch (sym_get_type(sym)) {
 	case S_BOOLEAN:
 	case S_TRISTATE:
-		if (sym_is_choice_value(sym) && sym->visible == yes) {
-			prop = sym_get_choice_prop(sym);
-			newval.tri = (prop_get_symbol(prop)->curr.val == sym) ? yes : no;
-		} else {
-			if (sym->visible != no) {
-				/* if the symbol is visible use the user value
-				 * if available, otherwise try the default value
-				 */
-				sym->flags |= SYMBOL_WRITE;
-				if (sym_has_value(sym)) {
-					newval.tri = EXPR_AND(sym->def[S_DEF_USER].tri,
-							      sym->visible);
-					goto calc_newval;
-				}
-			}
-			if (sym->rev_dep.tri != no)
-				sym->flags |= SYMBOL_WRITE;
-			if (!sym_is_choice(sym)) {
-				prop = sym_get_default_prop(sym);
-				if (prop) {
-					sym->flags |= SYMBOL_WRITE;
-					newval.tri = EXPR_AND(expr_calc_value(prop->expr),
-							      prop->visible.tri);
-				}
-			}
-		calc_newval:
-			newval.tri = EXPR_OR(newval.tri, sym->rev_dep.tri);
-		}
-		if (newval.tri == mod && sym_get_type(sym) == S_BOOLEAN)
+		newval.tri = sym->def[S_DEF_USER].tri;
+		if (sym->type == S_BOOLEAN && newval.tri == mod)
 			newval.tri = yes;
 		break;
+		/* if (sym_is_choice_value(sym) && sym->visible == yes) { */
+		/* 	prop = sym_get_choice_prop(sym); */
+		/* 	newval.tri = (prop_get_symbol(prop)->curr.val == sym) ? yes : no; */
+		/* } else { */
+		/* 	if (sym->visible != no) { */
+		/* 		/1* if the symbol is visible use the user value */
+		/* 		 * if available, otherwise try the default value */
+		/* 		 *1/ */
+		/* 		sym->flags |= SYMBOL_WRITE; */
+		/* 		if (sym_has_value(sym)) { */
+		/* 			newval.tri = EXPR_AND(sym->def[S_DEF_USER].tri, */
+		/* 					      sym->visible); */
+		/* 			goto calc_newval; */
+		/* 		} */
+		/* 	} */
+		/* 	if (sym->rev_dep.tri != no) */
+		/* 		sym->flags |= SYMBOL_WRITE; */
+		/* 	if (!sym_is_choice(sym)) { */
+		/* 		prop = sym_get_default_prop(sym); */
+		/* 		if (prop) { */
+		/* 			sym->flags |= SYMBOL_WRITE; */
+		/* 			newval.tri = EXPR_AND(expr_calc_value(prop->expr), */
+		/* 					      prop->visible.tri); */
+		/* 		} */
+		/* 	} */
+		/* calc_newval: */
+		/* 	newval.tri = EXPR_OR(newval.tri, sym->rev_dep.tri); */
+		/* } */
+		/* if (newval.tri == mod && sym_get_type(sym) == S_BOOLEAN) */
+		/* 	newval.tri = yes; */
+		/* break; */
 	case S_STRING:
 	case S_HEX:
 	case S_INT:
@@ -415,16 +419,16 @@ bool sym_tristate_within_range(struct symbol *sym, tristate val)
 {
 	int type = sym_get_type(sym);
 
-	if (sym->visible == no)
-		return false;
+	/* if (sym->visible == no) */
+	/* 	return false; */
 
 	if (type != S_BOOLEAN && type != S_TRISTATE)
 		return false;
 
 	if (type == S_BOOLEAN && val == mod)
 		return false;
-	if (sym->visible <= sym->rev_dep.tri)
-		return false;
+	/* if (sym->visible <= sym->rev_dep.tri) */
+	/* 	return false; */
 	if (sym_is_choice_value(sym) && sym->visible == yes)
 		return val == yes;
 	return val >= sym->rev_dep.tri && val <= sym->visible;
@@ -434,8 +438,8 @@ bool sym_set_tristate_value(struct symbol *sym, tristate val)
 {
 	tristate oldval = sym_get_tristate_value(sym);
 
-	if (oldval != val && !sym_tristate_within_range(sym, val))
-		return false;
+	/* if (oldval != val && !sym_tristate_within_range(sym, val)) */
+	/* 	return false; */
 
 	if (!(sym->flags & SYMBOL_DEF_USER)) {
 		sym->flags |= SYMBOL_DEF_USER;
@@ -460,6 +464,10 @@ bool sym_set_tristate_value(struct symbol *sym, tristate val)
 	}
 
 	sym->def[S_DEF_USER].tri = val;
+	if (sym->type == S_TRISTATE) {
+		sym->def[S_DEF_DEF3].tri = val;
+		sym->flags |= SYMBOL_DEF3;
+	}
 	if (oldval != val)
 		sym_clear_all_valid();
 

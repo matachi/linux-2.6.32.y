@@ -477,14 +477,20 @@ void ConfigList::setValue(ConfigItem* item, tristate val)
 	case S_BOOLEAN:
 	case S_TRISTATE:
 		oldval = sym_get_tristate_value(sym);
+		sym_set_tristate_value(sym, val);
 
-		if (!sym_set_tristate_value(sym, val)) {
-			if (type == S_TRISTATE)
-				conflictChecker->doCheck(sym, val);
-			else
-				qDebug("RangeFix only works on tristate options.");
-			return;
+		struct symbol* data[100];
+		int i;
+		int j = 0;
+		struct symbol* sym2;
+		for_all_symbols(i, sym2) {
+			if (sym2->type == S_TRISTATE && sym2->flags & SYMBOL_DEF3) {
+				data[j] = sym2;
+				++j;
+			}
 		}
+		conflictChecker->doCheck(data, j);
+
 		if (oldval == no && item->menu->list)
 			item->setOpen(TRUE);
 		parent()->updateList(item);
@@ -498,21 +504,11 @@ ConflictChecker::ConflictChecker()
 	connect(proc, SIGNAL(processExited()), this, SLOT(readFromStdout()));
 }
 
-void ConflictChecker::doCheck(struct symbol* sym, tristate val)
+void ConflictChecker::doCheck(symbol* symbols[100], int n)
 {
-	QString strval;
-	switch (val) {
-	case no:
-		strval = QString("no");
-		break;
-	case mod:
-		strval = QString("mode");
-		break;
-	case yes:
-		strval = QString("yes");
-		break;
-	}
-	qDebug(QString("Want to set '%1' to '%2'").arg(sym->name).arg(strval));
+	if (n == 0)
+		return;
+
 	QStringList params = QStringList()
 		<< "java"
 		<< "-cp"
@@ -521,20 +517,43 @@ void ConflictChecker::doCheck(struct symbol* sym, tristate val)
 		<< "ca.uwaterloo.gsd.rangeFix.KconfigMain"
 		<< QString("%1/scripts/kconfig/2.6.32.70.exconfig").arg(
 			QDir::currentDirPath())
-		<< QString("%1/.config").arg(QDir::currentDirPath())
-		<< sym->name
-		<< strval;
+		<< QString("%1/.config").arg(QDir::currentDirPath());
+
+	QStringList debugString = QStringList();
+	for (int i = 0; i < n; ++i) {
+		struct symbol* sym = symbols[i];
+		QString strval;
+		switch (sym->def[S_DEF_DEF3].tri) {
+		case no:
+			strval = QString("no");
+			break;
+		case mod:
+			strval = QString("mode");
+			break;
+		case yes:
+			strval = QString("yes");
+			break;
+		}
+		params << sym->name << strval;
+		if (i == 0)
+			debugString << QString("Want to set '%1' to '%2'").arg(sym->name).arg(strval);
+		else
+			debugString << QString("'%1' to '%2'").arg(sym->name).arg(strval);
+	}
+	qDebug(debugString.join(", "));
+
 	proc->setArguments(params);
 
+	proc->tryTerminate();
 	if (proc->start())
-		qDebug("Range Fix started");
+		qDebug("RangeFix started");
 	else
-		qDebug("Could not run Range Fix");
+		qDebug("Could not run RangeFix");
 }
 
 void ConflictChecker::readFromStdout()
 {
-	qDebug("Range Fix fininished");
+	qDebug("RangeFix fininished");
 	if (proc->canReadLineStderr()) {
 		qDebug("Something went wrong.");
 		qDebug(proc->readStderr());
@@ -544,7 +563,11 @@ void ConflictChecker::readFromStdout()
 		if (line.find('[') >= 0) {
 			QString fix = line.stripWhiteSpace();
 			qDebug(QString("Fix: %1").arg(fix));
-			emit foundConflict(fix);
+
+			QStringList lines = QStringList::split(", ", fix);
+			for (int i = 1; i < lines.size(); ++i)
+				lines[i] = QString(" %1").arg(lines[i]);
+			emit foundConflict(lines);
 		}
 	}
 }
@@ -1329,10 +1352,14 @@ void ConfigSearchWindow::search(void)
 	}
 }
 
-void ConfigMainWindow::addConflict(QString something) {
-	QListViewItem* item = new QListViewItem(conflictsList);
-	item->setText(0, something);
-	conflictsList->insertItem(item);
+void ConfigMainWindow::addConflict(QStringList lines) {
+	conflictsList->clear();
+	for (int i = lines.size()-1; i >= 0; --i) {
+		QListViewItem* item = new QListViewItem(conflictsList);
+		QString line = lines[i];
+		item->setText(0, line);
+		conflictsList->insertItem(item);
+	}
 	conflictsList->show();
 }
 
@@ -1367,19 +1394,20 @@ ConfigMainWindow::ConfigMainWindow(void)
 
 	menuView = new ConfigView(split1, "menu");
 	menuList = menuView->list;
-	connect(menuList->conflictChecker, SIGNAL(foundConflict(QString)), SLOT(addConflict(QString)));
+	connect(menuList->conflictChecker, SIGNAL(foundConflict(QStringList)), SLOT(addConflict(QStringList)));
 
 	split2 = new QSplitter(split1);
 	split2->setOrientation(Qt::Vertical);
 
 	conflictsList = new QListView(split1, "config");
 	conflictsList->addColumn("Fixes");
+	conflictsList->setSorting(-1);
 	conflictsList->hide();
 
 	// create config tree
 	configView = new ConfigView(split2, "config");
 	configList = configView->list;
-	connect(configList->conflictChecker, SIGNAL(foundConflict(QString)), SLOT(addConflict(QString)));
+	connect(configList->conflictChecker, SIGNAL(foundConflict(QStringList)), SLOT(addConflict(QStringList)));
 
 	helpText = new ConfigInfoView(split2, "help");
 	helpText->setTextFormat(Qt::RichText);

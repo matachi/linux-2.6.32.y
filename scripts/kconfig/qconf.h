@@ -35,13 +35,13 @@ class ConflictChecker : public QObject {
 	Q_OBJECT
 public:
 	ConflictChecker();
-	void doCheck(struct symbol*, tristate val);
+	void doCheck(struct symbol*[100], int n);
 private:
 	QProcess *proc;
 public slots:
 	void readFromStdout(void);
 signals:
-	void foundConflict(QString);
+	void foundConflict(QStringList);
 };
 
 class ConfigSettings : public QSettings {
@@ -332,7 +332,7 @@ public slots:
 	void showConflicts(void);
 	void showAbout(void);
 	void saveSettings(void);
-	void addConflict(QString);
+	void addConflict(QStringList);
 
 protected:
 	void closeEvent(QCloseEvent *e);
