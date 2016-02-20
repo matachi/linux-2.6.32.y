@@ -7,6 +7,8 @@
 #include <qmainwindow.h>
 #include <qdesktopwidget.h>
 #include <qtoolbar.h>
+#include <qbuttongroup.h>
+#include <qstatusbar.h>
 #include <qlayout.h>
 #include <qvbox.h>
 #include <qsplitter.h>
@@ -95,6 +97,261 @@ void ConfigItem::okRename(int col)
 	listView()->updateList(this);
 }
 #endif
+
+ConflictView::ConflictView(QWidget* parent, const char *name)
+	: Parent(parent, name)
+{
+	QVBoxLayout* layout = new QVBoxLayout(this);
+
+	QHBoxLayout* toolBar = new QHBoxLayout(layout);
+
+	n = new QPushButton("N", this);
+	n->setMaximumWidth(25);
+	toolBar->addWidget(n);
+	m = new QPushButton("M", this);
+	m->setMaximumWidth(25);
+	toolBar->addWidget(m);
+	y = new QPushButton("Y", this);
+	y->setMaximumWidth(25);
+	toolBar->addWidget(y);
+
+	QPushButton *fixButton = new QPushButton("Calculate fixes", this);
+	fixButton->setMinimumWidth(110);
+	toolBar->addWidget(fixButton);
+
+	QPushButton *removeButton = new QPushButton("Remove", this);
+	removeButton->setMinimumWidth(70);
+	toolBar->addWidget(removeButton);
+
+	QSplitter* split = new QSplitter(this);
+	split->setOrientation(Qt::Vertical);
+	layout->addWidget(split);
+
+	optionList = new ConflictOptionList(split, "Selected options");
+	fixList = new ConflictFixList(split, "Fixes");
+
+	statusBar = new QStatusBar(this, "Status bar");
+	layout->addWidget(statusBar);
+
+	conflictChecker = new ConflictChecker();
+
+	connect(n, SIGNAL(clicked(void)), SLOT(setSelectedtoN(void)));
+	connect(m, SIGNAL(clicked(void)), SLOT(setSelectedtoM(void)));
+	connect(y, SIGNAL(clicked(void)), SLOT(setSelectedtoY(void)));
+	connect(fixButton, SIGNAL(clicked(void)), SLOT(calculateFixes(void)));
+	connect(removeButton, SIGNAL(clicked(void)), SLOT(removeOptions(void)));
+	connect(conflictChecker, SIGNAL(foundFixes(QStringList)), SLOT(addFixes(QStringList)));
+}
+
+void ConflictView::setSelectedMenu(struct menu *menu) {
+	selectedMenu = menu;
+}
+
+void ConflictView::updateOptionValue(struct menu *menu) {
+	ConflictOptionItem *item = optionList->getItem(menu->sym);
+	if (item) {
+		item->updateVal(menu->sym->curr.tri);
+	}
+}
+
+void ConflictView::addSelectedOption(tristate val) {
+	if (!selectedMenu->sym) {
+		statusBar->message("The selected entry has no symbol.", statusTimeout);
+		return;
+	}
+
+	if (selectedMenu->sym->type != S_TRISTATE) {
+		statusBar->message("Only tristate options are supported.", statusTimeout);
+		return;
+	}
+
+	ConflictOptionItem *item = optionList->getItem(selectedMenu->sym);
+	if (item) {
+		if (item->wantedVal == val) {
+			statusBar->message("Symbol and value already added.", statusTimeout);
+			return;
+		} else {
+			item->updateWant(val);
+			return;
+		}
+	}
+
+	new ConflictOptionItem(optionList, selectedMenu->sym, val);
+}
+
+void ConflictView::calculateFixes(void) {
+	std::list<symVal> selectedItems;
+	QListViewItemIterator it(optionList);
+	while (it.current()) {
+		ConflictOptionItem *item = (ConflictOptionItem *)it.current();
+		if (optionList->isSelected(item)) {
+			selectedItems.push_back((symVal){item->sym, item->wantedVal});
+		}
+		++it;
+	}
+	statusBar->message("Running RangeFix.", statusTimeout);
+	conflictChecker->doCheck(selectedItems);
+}
+
+void ConflictView::addFixes(QStringList lines) {
+	fixList->clear();
+	for (int i = lines.size() - 1; i >= 0; --i) {
+		QListViewItem* item = new QListViewItem(fixList);
+		QString line = lines[i];
+		item->setText(0, line);
+		fixList->insertItem(item);
+	}
+	fixList->show();
+}
+
+void ConflictView::removeOptions(void) {
+	QListViewItemIterator it(optionList);
+	while (it.current()) {
+		ConflictOptionItem *item = (ConflictOptionItem *)it.current();
+		if (optionList->isSelected(item)) {
+			delete item;
+		} else {
+			++it;
+		}
+	}
+}
+
+ConflictOptionList::ConflictOptionList(QWidget *parent, const char *name)
+	: Parent(parent, name)
+{
+	addColumn("Option");
+	addColumn("Want");
+	addColumn("Value");
+	setSelectionMode(Multi);
+}
+
+ConflictOptionItem *ConflictOptionList::getItem(symbol *sym) {
+	QListViewItemIterator it(this);
+	while (it.current()) {
+		ConflictOptionItem *item = (ConflictOptionItem *)it.current();
+		if (item->sym == sym) {
+			return item;
+		}
+		++it;
+	}
+	return NULL;
+}
+
+ConflictOptionItem::ConflictOptionItem(QListView *parent, symbol *sym, tristate val)
+	: Parent(parent)
+{
+	this->sym = sym;
+	setText(0, sym->name);
+	updateWant(val);
+	updateVal(sym->curr.tri);
+}
+
+void ConflictOptionItem::updateWant(tristate val)
+{
+	wantedVal = val;
+	setText(1, triToStr(val));
+}
+
+void ConflictOptionItem::updateVal(tristate val)
+{
+	setText(2, triToStr(val));
+}
+
+QString ConflictOptionItem::triToStr(tristate val)
+{
+	switch (val) {
+	case no:
+		return QString("N");
+	case mod:
+		return QString("M");
+	case yes:
+		return QString("Y");
+	}
+}
+
+ConflictFixList::ConflictFixList(QWidget *parent, const char *name)
+	: Parent(parent, name)
+{
+	addColumn("Fix");
+	setSelectionMode(NoSelection);
+	setSorting(-1);
+}
+
+ConflictChecker::ConflictChecker()
+{
+	proc = new QProcess(this);
+	connect(proc, SIGNAL(processExited()), this, SLOT(readFromStdout()));
+}
+
+void ConflictChecker::doCheck(std::list<symVal> data)
+{
+	if (data.size() == 0)
+		return;
+
+	QStringList params = QStringList()
+		<< "java"
+		<< "-cp"
+		<< QString("%1/scripts/kconfig/RangeFix.jar").arg(
+			QDir::currentDirPath())
+		<< "ca.uwaterloo.gsd.rangeFix.KconfigMain"
+		<< QString("%1/scripts/kconfig/2.6.32.70.exconfig").arg(
+			QDir::currentDirPath())
+		<< QString("%1/.config").arg(QDir::currentDirPath());
+
+	QStringList debugString = QStringList();
+	for (std::list<symVal>::iterator i = data.begin(); i != data.end(); ++i) {
+		struct symbol* sym = i->sym;
+		QString strval;
+		switch (i->val) {
+		case no:
+			strval = QString("no");
+			break;
+		case mod:
+			strval = QString("mode");
+			break;
+		case yes:
+			strval = QString("yes");
+			break;
+		}
+		params << sym->name << strval;
+		if (i->sym == data.front().sym)
+			debugString << QString("Want to set '%1' to '%2'").arg(sym->name).arg(strval);
+		else
+			debugString << QString("'%1' to '%2'").arg(sym->name).arg(strval);
+	}
+	qDebug(debugString.join(", "));
+
+	proc->setArguments(params);
+
+	proc->tryTerminate();
+	if (proc->start())
+		qDebug("RangeFix started");
+	else
+		qDebug("Could not run RangeFix");
+}
+
+void ConflictChecker::readFromStdout()
+{
+	qDebug("RangeFix fininished");
+	if (proc->canReadLineStderr()) {
+		qDebug("Something went wrong.");
+		qDebug(proc->readStderr());
+	}
+	QStringList allLines = QStringList();
+	while (proc->canReadLineStdout()) {
+		QString line = proc->readLineStdout();
+		if (line.find('[') >= 0) {
+			QString fix = line.stripWhiteSpace();
+			qDebug(QString("Fix: %1").arg(fix));
+
+			QStringList lines = QStringList::split(", ", fix);
+			for (int i = 1; i < lines.size(); ++i)
+				lines[i] = QString(" %1").arg(lines[i]);
+			allLines += lines;
+		}
+	}
+	emit foundFixes(allLines);
+}
 
 /*
  * update the displayed of a menu entry
@@ -351,8 +608,6 @@ ConfigList::ConfigList(ConfigView* p, const char *name)
 		colMap[i] = colRevMap[i] = -1;
 	addColumn(promptColIdx, _("Option"));
 
-	conflictChecker = new ConflictChecker();
-
 	reinit();
 }
 
@@ -478,75 +733,15 @@ void ConfigList::setValue(ConfigItem* item, tristate val)
 	case S_TRISTATE:
 		oldval = sym_get_tristate_value(sym);
 
-		if (!sym_set_tristate_value(sym, val)) {
-			if (type == S_TRISTATE)
-				conflictChecker->doCheck(sym, val);
-			else
-				qDebug("RangeFix only works on tristate options.");
+		if (!sym_set_tristate_value(sym, val))
 			return;
-		}
 		if (oldval == no && item->menu->list)
 			item->setOpen(TRUE);
 		parent()->updateList(item);
 		break;
 	}
-}
 
-ConflictChecker::ConflictChecker()
-{
-	proc = new QProcess(this);
-	connect(proc, SIGNAL(processExited()), this, SLOT(readFromStdout()));
-}
-
-void ConflictChecker::doCheck(struct symbol* sym, tristate val)
-{
-	QString strval;
-	switch (val) {
-	case no:
-		strval = QString("no");
-		break;
-	case mod:
-		strval = QString("mode");
-		break;
-	case yes:
-		strval = QString("yes");
-		break;
-	}
-	qDebug(QString("Want to set '%1' to '%2'").arg(sym->name).arg(strval));
-	QStringList params = QStringList()
-		<< "java"
-		<< "-cp"
-		<< QString("%1/scripts/kconfig/RangeFix.jar").arg(
-			QDir::currentDirPath())
-		<< "ca.uwaterloo.gsd.rangeFix.KconfigMain"
-		<< QString("%1/scripts/kconfig/2.6.32.70.exconfig").arg(
-			QDir::currentDirPath())
-		<< QString("%1/.config").arg(QDir::currentDirPath())
-		<< sym->name
-		<< strval;
-	proc->setArguments(params);
-
-	if (proc->start())
-		qDebug("Range Fix started");
-	else
-		qDebug("Could not run Range Fix");
-}
-
-void ConflictChecker::readFromStdout()
-{
-	qDebug("Range Fix fininished");
-	if (proc->canReadLineStderr()) {
-		qDebug("Something went wrong.");
-		qDebug(proc->readStderr());
-	}
-	while (proc->canReadLineStdout()) {
-		QString line = proc->readLineStdout();
-		if (line.find('[') >= 0) {
-			QString fix = line.stripWhiteSpace();
-			qDebug(QString("Fix: %1").arg(fix));
-			emit foundConflict(fix);
-		}
-	}
+	emit valueSet(item->menu);
 }
 
 void ConfigList::changeValue(ConfigItem* item)
@@ -1329,13 +1524,6 @@ void ConfigSearchWindow::search(void)
 	}
 }
 
-void ConfigMainWindow::addConflict(QString something) {
-	QListViewItem* item = new QListViewItem(conflictsList);
-	item->setText(0, something);
-	conflictsList->insertItem(item);
-	conflictsList->show();
-}
-
 /*
  * Construct the complete config widget
  */
@@ -1367,19 +1555,16 @@ ConfigMainWindow::ConfigMainWindow(void)
 
 	menuView = new ConfigView(split1, "menu");
 	menuList = menuView->list;
-	connect(menuList->conflictChecker, SIGNAL(foundConflict(QString)), SLOT(addConflict(QString)));
 
 	split2 = new QSplitter(split1);
 	split2->setOrientation(Qt::Vertical);
 
-	conflictsList = new QListView(split1, "config");
-	conflictsList->addColumn("Fixes");
-	conflictsList->hide();
+	conflictView = new ConflictView(split1, "conflicts");
+	conflictView->hide();
 
 	// create config tree
 	configView = new ConfigView(split2, "config");
 	configList = configView->list;
-	connect(configList->conflictChecker, SIGNAL(foundConflict(QString)), SLOT(addConflict(QString)));
 
 	helpText = new ConfigInfoView(split2, "help");
 	helpText->setTextFormat(Qt::RichText);
@@ -1414,7 +1599,7 @@ ConfigMainWindow::ConfigMainWindow(void)
 	  connect(fullViewAction, SIGNAL(activated()), SLOT(showFullView()));
 	conflictsAction = new QAction("Conflicts View", QPixmap(xpm_conflicts), _("Conflicts View"), 0, this);
 	  conflictsAction->setToggleAction(TRUE);
-	  connect(conflictsAction, SIGNAL(toggled(bool)), SLOT(showConflicts()));
+	  connect(conflictsAction, SIGNAL(toggled(bool)), SLOT(showConflictView()));
 
 	QAction *showNameAction = new QAction(NULL, _("Show Name"), 0, this);
 	  showNameAction->setToggleAction(TRUE);
@@ -1500,6 +1685,15 @@ ConfigMainWindow::ConfigMainWindow(void)
 		helpText, SLOT(setInfo(struct menu *)));
 	connect(menuList, SIGNAL(menuSelected(struct menu *)),
 		SLOT(changeMenu(struct menu *)));
+
+	connect(menuList, SIGNAL(menuChanged(struct menu *)),
+		conflictView, SLOT(setSelectedMenu(struct menu *)));
+	connect(configList, SIGNAL(menuChanged(struct menu *)),
+		conflictView, SLOT(setSelectedMenu(struct menu *)));
+	connect(menuList, SIGNAL(valueSet(struct menu *)),
+		conflictView, SLOT(updateOptionValue(struct menu *)));
+	connect(configList, SIGNAL(valueSet(struct menu *)),
+		conflictView, SLOT(updateOptionValue(struct menu *)));
 
 	connect(configList, SIGNAL(gotFocus(struct menu *)),
 		helpText, SLOT(setInfo(struct menu *)));
@@ -1734,13 +1928,13 @@ void ConfigMainWindow::showIntro(void)
 	QMessageBox::information(this, "qconf", str);
 }
 
-void ConfigMainWindow::showConflicts(void)
+void ConfigMainWindow::showConflictView(void)
 {
-	bool visible = conflictsList->isVisible();
+	bool visible = conflictView->isVisible();
 	if (visible)
-		conflictsList->hide();
+		conflictView->hide();
 	else
-		conflictsList->show();
+		conflictView->show();
 	visible = !visible;
 	configSettings->writeEntry("/showConflicts", visible);
 }

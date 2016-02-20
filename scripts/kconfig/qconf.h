@@ -30,18 +30,102 @@ class ConfigList;
 class ConfigItem;
 class ConfigLineEdit;
 class ConfigMainWindow;
+class ConflictView;
+class ConflictChecker;
+class ConflictOptionList;
+class ConflictOptionItem;
+class ConflictFixList;
+
+class ConflictView : public QWidget {
+	Q_OBJECT
+	typedef class QWidget Parent;
+public:
+	ConflictView(QWidget *parent, const char *name);
+
+	QButton *n;
+	QButton *m;
+	QButton *y;
+
+public slots:
+	void setSelectedMenu(struct menu *menu);
+	void updateOptionValue(struct menu *menu);
+
+private:
+	void addSelectedOption(tristate val);
+
+	ConflictOptionList *optionList;
+	ConflictFixList *fixList;
+	struct menu* selectedMenu;
+	ConflictChecker *conflictChecker;
+	QStatusBar *statusBar;
+	static const int statusTimeout = 3000;
+
+private slots:
+	void setSelectedtoN(void)
+	{
+		addSelectedOption(no);
+	}
+	void setSelectedtoM(void)
+	{
+		addSelectedOption(mod);
+	}
+	void setSelectedtoY(void)
+	{
+		addSelectedOption(yes);
+	}
+	void calculateFixes(void);
+	void addFixes(QStringList lines);
+	void removeOptions(void);
+};
+
+struct symVal {
+	symbol *sym;
+	tristate val;
+};
+
+class ConflictOptionList : public QListView {
+	Q_OBJECT
+	typedef class QListView Parent;
+public:
+	ConflictOptionList(QWidget *parent, const char *name);
+	ConflictOptionItem *getItem(symbol *sym);
+};
+
+class ConflictOptionItem : public QListViewItem {
+	typedef class QListViewItem Parent;
+public:
+	ConflictOptionItem(QListView *parent, symbol *sym, tristate val);
+	void updateWant(tristate val);
+	void updateVal(tristate val);
+
+	symbol *sym;
+	tristate wantedVal;
+
+private:
+	QString triToStr(tristate val);
+};
+
+class ConflictFixList : public QListView {
+	Q_OBJECT
+	typedef class QListView Parent;
+public:
+	ConflictFixList(QWidget *parent, const char *name);
+};
 
 class ConflictChecker : public QObject {
 	Q_OBJECT
 public:
 	ConflictChecker();
-	void doCheck(struct symbol*, tristate val);
+	void doCheck(std::list<symVal> data);
+
 private:
 	QProcess *proc;
+
 public slots:
 	void readFromStdout(void);
+
 signals:
-	void foundConflict(QString);
+	void foundFixes(QStringList);
 };
 
 class ConfigSettings : public QSettings {
@@ -91,6 +175,7 @@ signals:
 	void menuSelected(struct menu *menu);
 	void parentSelected(void);
 	void gotFocus(struct menu *);
+	void valueSet(struct menu *menu);
 
 public:
 	void updateListAll(void)
@@ -142,8 +227,6 @@ public:
 	QColorGroup disabledColorGroup;
 	QColorGroup inactivedColorGroup;
 	QPopupMenu* headerPopup;
-
-	ConflictChecker *conflictChecker;
 
 private:
 	int colMap[colNr];
@@ -329,10 +412,9 @@ public slots:
 	void showSplitView(void);
 	void showFullView(void);
 	void showIntro(void);
-	void showConflicts(void);
+	void showConflictView(void);
 	void showAbout(void);
 	void saveSettings(void);
-	void addConflict(QString);
 
 protected:
 	void closeEvent(QCloseEvent *e);
@@ -342,7 +424,7 @@ protected:
 	ConfigList *menuList;
 	ConfigView *configView;
 	ConfigList *configList;
-	QListView *conflictsList;
+	ConflictView *conflictView;
 	ConfigInfoView *helpText;
 	QToolBar *toolBar;
 	QAction *backAction;
