@@ -340,11 +340,17 @@ void ConflictChecker::readFromStdout()
 	}
 	QStringList allLines = QStringList();
 	int i = 0;
+	bool firstIteration = true;
 	while (proc->canReadLineStdout()) {
 		QString line = proc->readLineStdout();
 		if (line.find('[') >= 0) {
 			QString fix = line.stripWhiteSpace();
 			qDebug(QString("Fix: %1").arg(fix));
+
+			if (firstIteration)
+				firstIteration = false;
+			else
+				allLines += "";
 
 			QStringList lines = QStringList::split(", ", fix);
 			for (int i = 1; i < lines.size(); ++i)
