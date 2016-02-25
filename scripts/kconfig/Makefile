@@ -12,7 +12,7 @@ Kconfig := arch/$(SRCARCH)/Kconfig
 endif
 
 $(obj)/RangeFix.jar:
-	wget -P $(obj) https://github.com/matachi/rangeFix/releases/download/0.1/RangeFix.jar
+	wget -P $(obj) https://github.com/matachi/rangeFix/releases/download/0.2/RangeFix.jar
 
 xconfig: $(obj)/qconf $(obj)/RangeFix.jar
 	$< $(Kconfig)
