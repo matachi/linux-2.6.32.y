@@ -339,6 +339,7 @@ void ConflictChecker::readFromStdout()
 		qDebug(proc->readStderr());
 	}
 	QStringList allLines = QStringList();
+	int i = 0;
 	while (proc->canReadLineStdout()) {
 		QString line = proc->readLineStdout();
 		if (line.find('[') >= 0) {
@@ -349,7 +350,13 @@ void ConflictChecker::readFromStdout()
 			for (int i = 1; i < lines.size(); ++i)
 				lines[i] = QString(" %1").arg(lines[i]);
 			allLines += lines;
+		} else if (i >= 3) {
+			if (i == 3) {
+				qDebug("Something went wrong:");
+			}
+			qDebug(QString("  %1").arg(line));
 		}
+		++i;
 	}
 	emit foundFixes(allLines);
 }
