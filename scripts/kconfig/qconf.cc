@@ -786,8 +786,10 @@ void ConfigList::changeValue(ConfigItem* item)
 			else if (oldexpr == no)
 				item->setOpen(TRUE);
 		}
-		if (oldexpr != newexpr)
+		if (oldexpr != newexpr) {
 			parent()->updateList(item);
+			emit valueSet(menu);
+		}
 		break;
 	case S_INT:
 	case S_HEX:
@@ -1481,6 +1483,10 @@ ConfigSearchWindow::ConfigSearchWindow(ConfigMainWindow* parent, const char *nam
 		info, SLOT(setInfo(struct menu *)));
 	connect(list->list, SIGNAL(menuChanged(struct menu *)),
 		parent, SLOT(setMenuLink(struct menu *)));
+	connect(list->list, SIGNAL(menuChanged(struct menu *)),
+		parent, SLOT(setMenuLink(struct menu *)));
+	connect(list->list, SIGNAL(valueSet(struct menu *)),
+		parent->conflictView, SLOT(updateOptionValue(struct menu *)));
 
 	layout1->addWidget(split);
 
@@ -1702,10 +1708,10 @@ ConfigMainWindow::ConfigMainWindow(void)
 
 	connect(menuList, SIGNAL(menuChanged(struct menu *)),
 		conflictView, SLOT(setSelectedMenu(struct menu *)));
-	connect(configList, SIGNAL(menuChanged(struct menu *)),
-		conflictView, SLOT(setSelectedMenu(struct menu *)));
 	connect(menuList, SIGNAL(valueSet(struct menu *)),
 		conflictView, SLOT(updateOptionValue(struct menu *)));
+	connect(configList, SIGNAL(menuChanged(struct menu *)),
+		conflictView, SLOT(setSelectedMenu(struct menu *)));
 	connect(configList, SIGNAL(valueSet(struct menu *)),
 		conflictView, SLOT(updateOptionValue(struct menu *)));
 

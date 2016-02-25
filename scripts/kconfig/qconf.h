@@ -399,6 +399,7 @@ class ConfigMainWindow : public QMainWindow {
 	static void conf_changed(void);
 public:
 	ConfigMainWindow(void);
+	ConflictView *conflictView;
 public slots:
 	void changeMenu(struct menu *);
 	void setMenuLink(struct menu *);
@@ -424,7 +425,6 @@ protected:
 	ConfigList *menuList;
 	ConfigView *configView;
 	ConfigList *configList;
-	ConflictView *conflictView;
 	ConfigInfoView *helpText;
 	QToolBar *toolBar;
 	QAction *backAction;
