@@ -189,11 +189,12 @@ void ConflictView::calculateFixes(void) {
 		}
 		++it;
 	}
-	statusBar->message("Running RangeFix.", statusTimeout);
+	statusBar->message("Running RangeFix.");
 	conflictChecker->doCheck(selectedItems);
 }
 
 void ConflictView::addFixes(QStringList lines) {
+	statusBar->message("");
 	fixList->clear();
 	for (int i = lines.size() - 1; i >= 0; --i) {
 		QListViewItem* item = new QListViewItem(fixList);
