@@ -289,6 +289,8 @@ void ConflictChecker::doCheck(std::list<symVal> data)
 	if (data.size() == 0)
 		return;
 
+	conf_write(".rangefix_config");
+
 	QStringList params = QStringList()
 		<< "java"
 		<< "-cp"
@@ -297,7 +299,7 @@ void ConflictChecker::doCheck(std::list<symVal> data)
 		<< "ca.uwaterloo.gsd.rangeFix.KconfigMain"
 		<< QString("%1/scripts/kconfig/2.6.32.70.exconfig").arg(
 			QDir::currentDirPath())
-		<< QString("%1/.config").arg(QDir::currentDirPath());
+		<< QString("%1/.rangefix_config").arg(QDir::currentDirPath());
 
 	QStringList debugString = QStringList();
 	for (std::list<symVal>::iterator i = data.begin(); i != data.end(); ++i) {
