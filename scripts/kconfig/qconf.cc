@@ -333,6 +333,28 @@ void ConflictChecker::doCheck(std::list<symVal> data)
 		qDebug("Could not run RangeFix");
 }
 
+static QString replaceEnumInStr(QString str)
+{
+	while (true) {
+		int i = str.find(QString("Enum[0,1,2]."), 0);
+		if (i == -1)
+			break;
+		int c = str.at(i + 12).digitValue();
+		switch (c) {
+		case 0:
+			str = str.replace(i, 13, "no");
+			break;
+		case 1:
+			str = str.replace(i, 13, "mod");
+			break;
+		case 2:
+			str = str.replace(i, 13, "yes");
+			break;
+		}
+	}
+	return str;
+}
+
 void ConflictChecker::readFromStdout()
 {
 	qDebug("RangeFix fininished");
@@ -345,6 +367,7 @@ void ConflictChecker::readFromStdout()
 	bool firstIteration = true;
 	while (proc->canReadLineStdout()) {
 		QString line = proc->readLineStdout();
+		line = replaceEnumInStr(line);
 		if (line.find('[') >= 0) {
 			QString fix = line.stripWhiteSpace();
 			qDebug(QString("Fix: %1").arg(fix));
