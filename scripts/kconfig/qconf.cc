@@ -336,6 +336,18 @@ void ConflictChecker::doCheck(std::list<symVal> data)
 static QString replaceEnumInStr(QString str)
 {
 	while (true) {
+		int i = str.find(QString("true"), 0);
+		if (i == -1)
+			break;
+		str = str.replace(i, 4, "yes");
+	}
+	while (true) {
+		int i = str.find(QString("false"), 0);
+		if (i == -1)
+			break;
+		str = str.replace(i, 5, "no");
+	}
+	while (true) {
 		int i = str.find(QString("Enum[0,1,2]."), 0);
 		if (i == -1)
 			break;
