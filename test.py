@@ -102,8 +102,7 @@ for row in output:
         print(
             'Total: {} ms, Slicing: {} ms, Diagnoses: {} ms, Fixes: {} ms, '
             'Execution: {} ms, Iterations: {}'.format(
-                total, slicing, generating, fixes, execution, iterations,
-                diagnoses))
+                total, slicing, generating, fixes, execution, iterations))
         for diagnosis in diagnoses:
             print(diagnosis)
     print()
