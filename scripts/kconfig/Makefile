@@ -3,13 +3,16 @@
 # These targets are used from top-level makefile
 
 PHONY += oldconfig xconfig gconfig menuconfig config silentoldconfig update-po-config \
-	localmodconfig localyesconfig
+	localmodconfig localyesconfig randomsymbolsconfig
 
 ifdef KBUILD_KCONFIG
 Kconfig := $(KBUILD_KCONFIG)
 else
 Kconfig := arch/$(SRCARCH)/Kconfig
 endif
+
+randomsymbolsconfig: $(obj)/randomsymbols
+	$< $(Kconfig) $(VALUE)
 
 $(obj)/RangeFix.jar:
 	wget -P $(obj) https://github.com/matachi/rangeFix/releases/download/0.2/RangeFix.jar
@@ -153,8 +156,9 @@ lxdialog += lxdialog/textbox.o lxdialog/yesno.o lxdialog/menubox.o
 conf-objs	:= conf.o  zconf.tab.o
 mconf-objs	:= mconf.o zconf.tab.o $(lxdialog)
 kxgettext-objs	:= kxgettext.o zconf.tab.o
+randomsymbols-objs	:= random_symbols.o zconf.tab.o
 
-hostprogs-y := conf qconf gconf kxgettext
+hostprogs-y := conf qconf gconf kxgettext randomsymbols
 
 ifeq ($(MAKECMDGOALS),menuconfig)
 	hostprogs-y += mconf
@@ -286,6 +290,8 @@ $(obj)/kconfig_load.o: $(obj)/lkc_defs.h
 $(obj)/qconf.o: $(obj)/qconf.moc $(obj)/lkc_defs.h
 
 $(obj)/gconf.o: $(obj)/lkc_defs.h
+
+$(obj)/random_symbols.o: $(obj)/random_symbols.c
 
 $(obj)/%.moc: $(src)/%.h
 	$(KC_QT_MOC) -i $< -o $@
