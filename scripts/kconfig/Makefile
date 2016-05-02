@@ -15,7 +15,7 @@ randomsymbolsconfig: $(obj)/randomsymbols
 	$< $(Kconfig) $(VALUE)
 
 $(obj)/RangeFix.jar:
-	wget -P $(obj) https://github.com/matachi/rangeFix/releases/download/0.2/RangeFix.jar
+	wget -P $(obj) https://github.com/matachi/rangeFix/releases/download/0.3/RangeFix.jar
 
 xconfig: $(obj)/qconf $(obj)/RangeFix.jar
 	$< $(Kconfig)

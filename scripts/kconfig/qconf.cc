@@ -371,6 +371,8 @@ void ConflictChecker::readFromStdout()
 {
 	qDebug("RangeFix fininished");
 	if (proc->canReadLineStderr()) {
+		/* TODO: Distinguish between logging, error message and
+		 * exception. */
 		qDebug("Something went wrong.");
 		qDebug(proc->readStderr());
 	}
