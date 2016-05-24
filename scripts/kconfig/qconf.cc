@@ -378,6 +378,7 @@ void ConflictChecker::readFromStdout()
 	}
 	QStringList allLines = QStringList();
 	int i = 0;
+	int fixes = 0;
 	bool firstIteration = true;
 	while (proc->canReadLineStdout()) {
 		QString line = proc->readLineStdout();
@@ -391,9 +392,12 @@ void ConflictChecker::readFromStdout()
 			else
 				allLines += "";
 
+			allLines += QString("Fix %1:").arg(++fixes);
 			QStringList lines = QStringList::split(", ", fix);
 			for (int i = 1; i < lines.size(); ++i)
 				lines[i] = QString(" %1").arg(lines[i]);
+			for (int i = 0; i < lines.size() - 1; ++i)
+				lines[i] = QString("%1,").arg(lines[i]);
 			allLines += lines;
 		} else if (i >= 3) {
 			if (i == 3) {
