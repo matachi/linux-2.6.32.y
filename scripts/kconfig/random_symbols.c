@@ -17,8 +17,8 @@ static inline bool sym_has_prompt(struct symbol *sym)
 
 bool valid_symbol(struct symbol *sym)
 {
-	return (sym->type == S_BOOLEAN || sym->type == S_TRISTATE) &&
-	        sym->name && sym_has_prompt(sym) && sym->curr.tri == 0;
+	return sym->type == S_TRISTATE && sym_has_prompt(sym) &&
+	       sym->curr.tri == 0;
 }
 
 void print_random_symbols(unsigned int num, char *kconfig)
@@ -37,6 +37,7 @@ void print_random_symbols(unsigned int num, char *kconfig)
 	for_all_symbols(i, sym) {
 		if (valid_symbol(sym)) ++number_of_symbols;
 	}
+	/* printf("IETNRISNTSISRNT   %i\n", number_of_symbols); */
 	symbols = malloc(number_of_symbols * sizeof(struct symbol *));
 	for_all_symbols(i, sym) {
 		if (valid_symbol(sym)) symbols[j++] = sym;
